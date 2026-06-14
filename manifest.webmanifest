@@ -1,0 +1,17 @@
+{
+  "name": "応用情報 午前・午後対策",
+  "short_name": "AP対策",
+  "description": "応用情報技術者試験の午前・午後対策（過去問＋AI）",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#4f46e5",
+  "background_color": "#f1f5f9",
+  "icons": [
+    { "src": "./pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./pwa-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
