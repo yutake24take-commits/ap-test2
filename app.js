@@ -579,8 +579,10 @@ var DEFAULT_STATE = {
   // 進行中バッチ {questions, idx, answers}
   pmHistory: [],
   // 午後採点履歴
-  seenStems: []
+  seenStems: [],
   // AI生成の重複回避
+  program: null
+  // 苦手対策プログラム（再生成するまで保持）
 };
 async function loadState() {
   try {
@@ -850,7 +852,7 @@ function App() {
     setTab("home");
   }, []);
   if (!state) return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen flex items-center justify-center bg-slate-50" }, /* @__PURE__ */ React.createElement(Loader2, { className: "animate-spin text-indigo-500" }));
-  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-slate-50 text-slate-800", style: { fontFamily: "'Hiragino Sans','Noto Sans JP',system-ui,sans-serif" } }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto pb-24" }, /* @__PURE__ */ React.createElement("header", { className: "px-5 pt-6 pb-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white" }, /* @__PURE__ */ React.createElement(GraduationCap, { size: 20 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-base font-bold tracking-tight leading-none" }, "\u5FDC\u7528\u60C5\u5831 \u5BFE\u7B56\u30A8\u30FC\u30B8\u30A7\u30F3\u30C8"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-slate-400 mt-0.5" }, "\u5348\u524D\u3067\u56FA\u3081\u3001\u5348\u5F8C\u3067\u5408\u683C\u3078")))), /* @__PURE__ */ React.createElement("main", { className: "px-4" }, tab === "home" && /* @__PURE__ */ React.createElement(Home, { state, go: setTab, reset, restore }), tab === "am" && /* @__PURE__ */ React.createElement(AMFlow, { state, update, go: setTab, pending: pendingFocus, clearPending: () => setPendingFocus(null) }), tab === "review" && /* @__PURE__ */ React.createElement(WrongReview, { state }), tab === "analysis" && /* @__PURE__ */ React.createElement(Analysis, { state, onTest: startFocusedQuiz }), tab === "pm" && /* @__PURE__ */ React.createElement(PMPrep, { state, update }))), /* @__PURE__ */ React.createElement("nav", { className: "fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto grid grid-cols-5" }, [
+  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-slate-50 text-slate-800", style: { fontFamily: "'Hiragino Sans','Noto Sans JP',system-ui,sans-serif" } }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto pb-24" }, /* @__PURE__ */ React.createElement("header", { className: "px-5 pt-6 pb-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white" }, /* @__PURE__ */ React.createElement(GraduationCap, { size: 20 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-base font-bold tracking-tight leading-none" }, "\u5FDC\u7528\u60C5\u5831 \u5BFE\u7B56\u30A8\u30FC\u30B8\u30A7\u30F3\u30C8"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-slate-400 mt-0.5" }, "\u5348\u524D\u3067\u56FA\u3081\u3001\u5348\u5F8C\u3067\u5408\u683C\u3078")))), /* @__PURE__ */ React.createElement("main", { className: "px-4" }, tab === "home" && /* @__PURE__ */ React.createElement(Home, { state, go: setTab, reset, restore }), tab === "am" && /* @__PURE__ */ React.createElement(AMFlow, { state, update, go: setTab, pending: pendingFocus, clearPending: () => setPendingFocus(null) }), tab === "review" && /* @__PURE__ */ React.createElement(WrongReview, { state }), tab === "analysis" && /* @__PURE__ */ React.createElement(Analysis, { state, onTest: startFocusedQuiz, update }), tab === "pm" && /* @__PURE__ */ React.createElement(PMPrep, { state, update }))), /* @__PURE__ */ React.createElement("nav", { className: "fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto grid grid-cols-5" }, [
     ["home", HomeIcon, "\u30DB\u30FC\u30E0"],
     ["am", BookOpen, "\u5348\u524D"],
     ["review", RotateCcw, "\u5FA9\u7FD2"],
@@ -1267,11 +1269,11 @@ function WrongReview({ state }) {
   if (wrongQs.length === 0) return /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-8 text-center shadow-sm" }, /* @__PURE__ */ React.createElement(CheckCircle2, { size: 36, className: "text-emerald-400 mx-auto" }), /* @__PURE__ */ React.createElement("p", { className: "text-sm font-semibold text-slate-700 mt-3" }, "\u5FA9\u7FD2\u3059\u308B\u554F\u984C\u306F\u3042\u308A\u307E\u305B\u3093"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-400 mt-1" }, "\u9593\u9055\u3048\u305F\u554F\u984C\u306F\u3053\u3053\u306B\u96C6\u307E\u308A\u307E\u3059\u3002"));
   return /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 px-1" }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 18, className: "text-rose-500" }), /* @__PURE__ */ React.createElement("h2", { className: "text-base font-bold" }, "\u9593\u9055\u3048\u305F\u554F\u984C\uFF08", wrongQs.length, "\uFF09")), /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-400 px-1" }, "\u6B63\u89E3\u3067\u304D\u305F\u554F\u984C\u306F\u81EA\u52D5\u3067\u5916\u308C\u307E\u3059\u3002"), wrongQs.map((q, i) => q.noBody ? /* @__PURE__ */ React.createElement("div", { key: q.id, className: "rounded-2xl bg-white border border-slate-200 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex gap-1.5 mb-1" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[q.cat] }, q.cat), /* @__PURE__ */ React.createElement(Pill, { tone: "ai" }, q.src)), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-500" }, "AI\u751F\u6210\u554F\u984C\u306E\u305F\u3081\u672C\u6587\u306F\u4FDD\u5B58\u3055\u308C\u307E\u305B\u3093\u3002\u540C\u5206\u91CE\u306E\u6F14\u7FD2\u3067\u518D\u6311\u6226\u3067\u304D\u307E\u3059\u3002")) : /* @__PURE__ */ React.createElement(ExplainCard, { key: q.id, q, chosen: -1, correct: false, num: i + 1 })));
 }
-function Analysis({ state, onTest }) {
+function Analysis({ state, onTest, update }) {
   const r = readiness(state.attempts);
   const cm = r.cm;
   const rows = Object.entries(cm).map(([k, v]) => ({ k, ...v, acc: v.total ? Math.round(v.correct / v.total * 100) : null }));
-  const [program, setProgram] = useState(null);
+  const [program, setProgram] = useState(state.program || null);
   const [loading, setLoading] = useState(false);
   const enough = state.attempts.length >= ANALYZE_AT;
   async function makeProgram() {
@@ -1284,7 +1286,9 @@ function Analysis({ state, onTest }) {
 \u7279\u306B\u5F31\u3044\u5206\u91CE:${weakList.join("\u3001") || "\u76EE\u7ACB\u3063\u305F\u5F31\u70B9\u306A\u3057"}
 \u5F62\u5F0F:{"summary":"\u5168\u4F53\u6240\u898B(120\u5B57)","plan":[{"cat":"\u5206\u91CE","priority":"\u9AD8/\u4E2D/\u4F4E","why":"\u306A\u305C\u5FC5\u8981\u304B","todo":["\u5177\u4F53\u7684\u5B66\u7FD2\u9805\u76EE1","\u9805\u76EE2"],"goal":"\u5230\u9054\u76EE\u6A19"}],"balance":"\u504F\u308A\u3092\u907F\u3051\u308B\u52A9\u8A00(80\u5B57)"}\u3002\u5F31\u70B9\u304C\u8907\u6570\u3042\u308C\u3070\u5FC5\u305A\u5168\u3066\u542B\u3081\u308B\u3002\u65E5\u672C\u8A9E\u3002`;
       const txt = await callClaude([{ role: "user", content: usr }], sys, 4096);
-      setProgram(parseJSON(txt));
+      const parsed = parseJSON(txt);
+      setProgram(parsed);
+      update && update((s) => ({ ...s, program: parsed }));
     } catch (e) {
       setProgram({ summary: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"), plan: [], balance: "" });
     }
