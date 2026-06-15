@@ -616,12 +616,12 @@ function setApiKey(v) {
   } catch (e) {
   }
 }
-async function callClaude(messages, system) {
+async function callClaude(messages, system, maxTokens = 2048) {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API\u30AD\u30FC\u304C\u672A\u8A2D\u5B9A\u3067\u3059\u3002\u30DB\u30FC\u30E0\u753B\u9762\u306E\u300CAI\uFF08API\u30AD\u30FC\uFF09\u8A2D\u5B9A\u300D\u304B\u3089\u30AD\u30FC\u3092\u767B\u9332\u3057\u3066\u304F\u3060\u3055\u3044\u3002");
   }
-  const body = { model: "claude-sonnet-4-6", max_tokens: 1e3, messages };
+  const body = { model: "claude-sonnet-4-6", max_tokens: maxTokens, messages };
   if (system) body.system = system;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -650,7 +650,73 @@ function parseJSON(text) {
   let t = (text || "").trim().replace(/```json/gi, "").replace(/```/g, "").trim();
   const a = t.indexOf("{"), b = t.lastIndexOf("}");
   if (a >= 0 && b > a) t = t.slice(a, b + 1);
-  return JSON.parse(t);
+  try {
+    return JSON.parse(t);
+  } catch (e) {
+    return JSON.parse(repairJSON(t));
+  }
+}
+function repairJSON(s) {
+  let str = s.indexOf("{") >= 0 ? s.slice(s.indexOf("{")) : s;
+  let inStr = false, esc = false;
+  const stack = [];
+  let lastComplete = -1;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (ch === "\\") {
+      esc = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (ch === "{" || ch === "[") stack.push(ch);
+    else if (ch === "}" || ch === "]") {
+      stack.pop();
+      lastComplete = i;
+    } else if (ch === "," || ch === '"') {
+    }
+    if (!inStr && (ch === "}" || ch === "]")) lastComplete = i;
+  }
+  let out = str;
+  if (inStr) {
+    const cut = out.lastIndexOf('"');
+    if (cut > 0) out = out.slice(0, cut);
+    out = out.replace(/[,:]\s*$/, "").replace(/[^}\]]*$/, (m) => /[}\]]/.test(m) ? m : "");
+  }
+  out = out.replace(/,\s*$/, "");
+  const open = [];
+  inStr = false;
+  esc = false;
+  for (let i = 0; i < out.length; i++) {
+    const ch = out[i];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (ch === "\\") {
+      esc = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (ch === "{") open.push("}");
+    else if (ch === "[") open.push("]");
+    else if (ch === "}" || ch === "]") open.pop();
+  }
+  if (inStr) out += '"';
+  out = out.replace(/,\s*$/, "");
+  while (open.length) out += open.pop();
+  return out;
 }
 function statsByCat(attempts) {
   const m = {};
@@ -1042,7 +1108,7 @@ function AMFlow({ state, update, go }) {
         const focusCats = focus && focus.length ? focus : ["\u30BB\u30AD\u30E5\u30EA\u30C6\u30A3", "\u30CD\u30C3\u30C8\u30EF\u30FC\u30AF", "\u30C7\u30FC\u30BF\u30D9\u30FC\u30B9", "\u30A2\u30EB\u30B4\u30EA\u30BA\u30E0\u30FB\u57FA\u790E\u7406\u8AD6", "\u30D7\u30ED\u30B8\u30A7\u30AF\u30C8\u30DE\u30CD\u30B8\u30E1\u30F3\u30C8"];
         const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13(\u5348\u524D)\u306E\u4F5C\u554F\u8005\u3002\u672C\u8A66\u9A13\u3068\u540C\u7B49\u306E\u96E3\u6613\u5EA6\u30FB\u5F62\u5F0F\u306E4\u629E\u554F\u984C\u3092\u4F5C\u308B\u3002\u51FA\u529B\u306FJSON\u306E\u307F\u3002\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u7981\u6B62\u3002";
         const usr = `\u5206\u91CE\u5019\u88DC:${focusCats.join("\u3001")} \u304B\u3089${need}\u554F\u3002\u65E2\u51FA\u3068\u91CD\u8907\u3057\u306A\u3044\u3053\u3068\u3002\u5F62\u5F0F:{"questions":[{"cat":"\u5206\u91CE\u540D(\u5019\u88DC\u304B\u3089)","stem":"\u554F\u984C\u6587","choices":["\u30A2\u5185\u5BB9","\u30A4\u5185\u5BB9","\u30A6\u5185\u5BB9","\u30A8\u5185\u5BB9"],"answer":\u6B63\u89E3index(0-3),"explain":"\u306A\u305C\u6B63\u89E3\u304B\uFF06\u4ED6\u9078\u629E\u80A2\u306E\u8AA4\u308A(150\u5B57)"}]}\u3002\u65E5\u672C\u8A9E\u3002`;
-        const txt = await callClaude([{ role: "user", content: usr }], sys);
+        const txt = await callClaude([{ role: "user", content: usr }], sys, 3072);
         const j = parseJSON(txt);
         const gen = (j.questions || []).slice(0, need).map((q, i) => ({
           id: `ai-${Date.now()}-${i}`,
@@ -1202,7 +1268,7 @@ function Analysis({ state }) {
       const usr = `\u5168\u5206\u91CE\u6B63\u7B54\u7387:${allList}
 \u7279\u306B\u5F31\u3044\u5206\u91CE:${weakList.join("\u3001") || "\u76EE\u7ACB\u3063\u305F\u5F31\u70B9\u306A\u3057"}
 \u5F62\u5F0F:{"summary":"\u5168\u4F53\u6240\u898B(120\u5B57)","plan":[{"cat":"\u5206\u91CE","priority":"\u9AD8/\u4E2D/\u4F4E","why":"\u306A\u305C\u5FC5\u8981\u304B","todo":["\u5177\u4F53\u7684\u5B66\u7FD2\u9805\u76EE1","\u9805\u76EE2"],"goal":"\u5230\u9054\u76EE\u6A19"}],"balance":"\u504F\u308A\u3092\u907F\u3051\u308B\u52A9\u8A00(80\u5B57)"}\u3002\u5F31\u70B9\u304C\u8907\u6570\u3042\u308C\u3070\u5FC5\u305A\u5168\u3066\u542B\u3081\u308B\u3002\u65E5\u672C\u8A9E\u3002`;
-      const txt = await callClaude([{ role: "user", content: usr }], sys);
+      const txt = await callClaude([{ role: "user", content: usr }], sys, 4096);
       setProgram(parseJSON(txt));
     } catch (e) {
       setProgram({ summary: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"), plan: [], balance: "" });
@@ -1239,7 +1305,7 @@ function PMPrep({ state, update }) {
     try {
       const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13(\u5348\u5F8C)\u306E\u4F5C\u554F\u8005\u3002\u6307\u5B9A\u5206\u91CE\u3067\u672C\u8A66\u9A13\u5F62\u5F0F\u306E\u4E8B\u4F8B\uFF0B\u8A2D\u554F\u3092\u4F5C\u308B\u3002\u8A18\u8FF0\u30FB\u7A74\u57CB\u3081\u4E2D\u5FC3\u3002\u4E8B\u4F8B\u306F\u7C21\u6F54\u306B\u3002\u51FA\u529B\u306FJSON\u306E\u307F\u3001\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u7981\u6B62\u3002";
       const usr = `\u5206\u91CE:${f}\u3002\u5F62\u5F0F:{"theme":"\u30C6\u30FC\u30DE\u540D","scenario":"\u4E8B\u4F8B\u672C\u6587(250\u5B57\u7A0B\u5EA6\u3001\u4F01\u696D\u540D\u3084\u72B6\u6CC1\u3092\u5177\u4F53\u7684\u306B)","questions":[{"id":"\u8A2D\u554F1","prompt":"\u554F\u3044(\u8A18\u8FF0\u3067\u7B54\u3048\u308B)","modelAnswer":"\u6A21\u7BC4\u89E3\u7B54(40\u5B57\u7A0B\u5EA6)","point":"\u63A1\u70B9\u306E\u89B3\u70B9"}]}\u3002\u8A2D\u554F\u306F3\u554F\u3002\u65E5\u672C\u8A9E\u3002`;
-      const txt = await callClaude([{ role: "user", content: usr }], sys);
+      const txt = await callClaude([{ role: "user", content: usr }], sys, 3072);
       setProblem(parseJSON(txt));
     } catch (e) {
       setErr("\u554F\u984C\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002");
