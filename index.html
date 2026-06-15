@@ -72,7 +72,8 @@
 
     <script type="module">
       try {
-        await import("./app.js");
+        // 末尾に時刻を付けて毎回最新の app.js を読み込む（キャッシュ回避）
+        await import("./app.js?ts=" + Date.now());
         var el = document.getElementById("root");
         if (el) el.setAttribute("data-mounted", "1");
       } catch (err) {
