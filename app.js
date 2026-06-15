@@ -823,6 +823,7 @@ function ChatPanel({ context, placeholder, seed }) {
 function App() {
   const [state, setState] = useState(null);
   const [tab, setTab] = useState("home");
+  const [pendingFocus, setPendingFocus] = useState(null);
   useEffect(() => {
     loadState().then(setState);
   }, []);
@@ -832,6 +833,10 @@ function App() {
       saveState(ns);
       return ns;
     });
+  }, []);
+  const startFocusedQuiz = useCallback((cat) => {
+    setPendingFocus({ cats: [cat], strict: true });
+    setTab("am");
   }, []);
   const reset = useCallback(async () => {
     await clearStored();
@@ -845,7 +850,7 @@ function App() {
     setTab("home");
   }, []);
   if (!state) return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen flex items-center justify-center bg-slate-50" }, /* @__PURE__ */ React.createElement(Loader2, { className: "animate-spin text-indigo-500" }));
-  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-slate-50 text-slate-800", style: { fontFamily: "'Hiragino Sans','Noto Sans JP',system-ui,sans-serif" } }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto pb-24" }, /* @__PURE__ */ React.createElement("header", { className: "px-5 pt-6 pb-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white" }, /* @__PURE__ */ React.createElement(GraduationCap, { size: 20 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-base font-bold tracking-tight leading-none" }, "\u5FDC\u7528\u60C5\u5831 \u5BFE\u7B56\u30A8\u30FC\u30B8\u30A7\u30F3\u30C8"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-slate-400 mt-0.5" }, "\u5348\u524D\u3067\u56FA\u3081\u3001\u5348\u5F8C\u3067\u5408\u683C\u3078")))), /* @__PURE__ */ React.createElement("main", { className: "px-4" }, tab === "home" && /* @__PURE__ */ React.createElement(Home, { state, go: setTab, reset, restore }), tab === "am" && /* @__PURE__ */ React.createElement(AMFlow, { state, update, go: setTab }), tab === "review" && /* @__PURE__ */ React.createElement(WrongReview, { state }), tab === "analysis" && /* @__PURE__ */ React.createElement(Analysis, { state }), tab === "pm" && /* @__PURE__ */ React.createElement(PMPrep, { state, update }))), /* @__PURE__ */ React.createElement("nav", { className: "fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto grid grid-cols-5" }, [
+  return /* @__PURE__ */ React.createElement("div", { className: "min-h-screen bg-slate-50 text-slate-800", style: { fontFamily: "'Hiragino Sans','Noto Sans JP',system-ui,sans-serif" } }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto pb-24" }, /* @__PURE__ */ React.createElement("header", { className: "px-5 pt-6 pb-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2" }, /* @__PURE__ */ React.createElement("div", { className: "w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white" }, /* @__PURE__ */ React.createElement(GraduationCap, { size: 20 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("h1", { className: "text-base font-bold tracking-tight leading-none" }, "\u5FDC\u7528\u60C5\u5831 \u5BFE\u7B56\u30A8\u30FC\u30B8\u30A7\u30F3\u30C8"), /* @__PURE__ */ React.createElement("p", { className: "text-[11px] text-slate-400 mt-0.5" }, "\u5348\u524D\u3067\u56FA\u3081\u3001\u5348\u5F8C\u3067\u5408\u683C\u3078")))), /* @__PURE__ */ React.createElement("main", { className: "px-4" }, tab === "home" && /* @__PURE__ */ React.createElement(Home, { state, go: setTab, reset, restore }), tab === "am" && /* @__PURE__ */ React.createElement(AMFlow, { state, update, go: setTab, pending: pendingFocus, clearPending: () => setPendingFocus(null) }), tab === "review" && /* @__PURE__ */ React.createElement(WrongReview, { state }), tab === "analysis" && /* @__PURE__ */ React.createElement(Analysis, { state, onTest: startFocusedQuiz }), tab === "pm" && /* @__PURE__ */ React.createElement(PMPrep, { state, update }))), /* @__PURE__ */ React.createElement("nav", { className: "fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200" }, /* @__PURE__ */ React.createElement("div", { className: "max-w-md mx-auto grid grid-cols-5" }, [
     ["home", HomeIcon, "\u30DB\u30FC\u30E0"],
     ["am", BookOpen, "\u5348\u524D"],
     ["review", RotateCcw, "\u5FA9\u7FD2"],
@@ -1084,24 +1089,27 @@ function Scratchpad({ tab }) {
     }
   )))));
 }
-function pickQuestions(state, n = 5, focus = null) {
+function pickQuestions(state, n = 5, focus = null, strict = false) {
   const doneIds = new Set(state.attempts.map((a) => a.qid));
   let pool = REAL_QUESTIONS.filter((q) => !doneIds.has(q.id));
+  if (strict && focus && focus.length) pool = pool.filter((q) => focus.includes(q.cat));
   if (focus) pool = pool.sort((a, b) => (focus.includes(b.cat) ? 1 : 0) - (focus.includes(a.cat) ? 1 : 0));
   else pool = pool.sort(() => Math.random() - 0.5);
   return pool.slice(0, n).map((q) => ({ ...q, source: "real" }));
 }
-function AMFlow({ state, update, go }) {
+function AMFlow({ state, update, go, pending, clearPending }) {
   const [phase, setPhase] = useState(state.resume ? "quiz" : "start");
   const [batch, setBatch] = useState(state.resume?.questions || null);
   const [idx, setIdx] = useState(state.resume?.idx || 0);
   const [answers, setAnswers] = useState(state.resume?.answers || []);
   const [loading, setLoading] = useState(false);
   const [genError, setGenError] = useState("");
-  async function startBatch(focus) {
+  const [focusLabel, setFocusLabel] = useState("");
+  async function startBatch(focus, strict = false) {
     setLoading(true);
     setGenError("");
-    let qs = pickQuestions(state, 5, focus);
+    setFocusLabel(strict && focus && focus.length ? focus[0] : "");
+    let qs = pickQuestions(state, 5, focus, strict);
     if (qs.length < 5) {
       try {
         const need = 5 - qs.length;
@@ -1137,6 +1145,13 @@ function AMFlow({ state, update, go }) {
     setLoading(false);
     update((s) => ({ ...s, resume: { questions: qs, idx: 0, answers: [] } }));
   }
+  useEffect(() => {
+    if (pending && pending.cats) {
+      const p = pending;
+      clearPending && clearPending();
+      startBatch(p.cats, p.strict);
+    }
+  }, [pending]);
   function answer(choiceIdx) {
     const q = batch[idx];
     const correct = choiceIdx === q.answer;
@@ -1185,7 +1200,7 @@ function AMFlow({ state, update, go }) {
   }
   if (phase === "quiz") {
     const q = batch[idx];
-    return /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-semibold text-slate-400" }, "\u8A2D\u554F ", idx + 1, " / ", batch.length), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1" }, batch.map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: `h-1.5 w-6 rounded-full ${i < idx ? "bg-indigo-600" : i === idx ? "bg-indigo-300" : "bg-slate-200"}` })))), /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 mb-3" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[q.cat] }, q.cat), /* @__PURE__ */ React.createElement(Pill, { tone: q.source === "ai" ? "ai" : "slate" }, q.source === "ai" ? /* @__PURE__ */ React.createElement("span", { className: "flex items-center gap-0.5" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 9 }), q.src) : /* @__PURE__ */ React.createElement("span", { className: "flex items-center gap-0.5" }, /* @__PURE__ */ React.createElement(Calendar, { size: 9 }), q.src))), /* @__PURE__ */ React.createElement("p", { className: "text-[15px] leading-relaxed font-medium text-slate-800" }, q.stem), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5 mt-4" }, q.choices.map((c, i) => /* @__PURE__ */ React.createElement(
+    return /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, focusLabel && /* @__PURE__ */ React.createElement("div", { className: "rounded-xl bg-violet-50 border border-violet-200 px-3 py-2 text-[12px] font-semibold text-violet-700 flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement(Target, { size: 13 }), " ", focusLabel, " \u306E\u7406\u89E3\u5EA6\u30C6\u30B9\u30C8"), /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ React.createElement("span", { className: "text-xs font-semibold text-slate-400" }, "\u8A2D\u554F ", idx + 1, " / ", batch.length), /* @__PURE__ */ React.createElement("div", { className: "flex gap-1" }, batch.map((_, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: `h-1.5 w-6 rounded-full ${i < idx ? "bg-indigo-600" : i === idx ? "bg-indigo-300" : "bg-slate-200"}` })))), /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-1.5 mb-3" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[q.cat] }, q.cat), /* @__PURE__ */ React.createElement(Pill, { tone: q.source === "ai" ? "ai" : "slate" }, q.source === "ai" ? /* @__PURE__ */ React.createElement("span", { className: "flex items-center gap-0.5" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 9 }), q.src) : /* @__PURE__ */ React.createElement("span", { className: "flex items-center gap-0.5" }, /* @__PURE__ */ React.createElement(Calendar, { size: 9 }), q.src))), /* @__PURE__ */ React.createElement("p", { className: "text-[15px] leading-relaxed font-medium text-slate-800" }, q.stem), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5 mt-4" }, q.choices.map((c, i) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: i,
@@ -1252,7 +1267,7 @@ function WrongReview({ state }) {
   if (wrongQs.length === 0) return /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-8 text-center shadow-sm" }, /* @__PURE__ */ React.createElement(CheckCircle2, { size: 36, className: "text-emerald-400 mx-auto" }), /* @__PURE__ */ React.createElement("p", { className: "text-sm font-semibold text-slate-700 mt-3" }, "\u5FA9\u7FD2\u3059\u308B\u554F\u984C\u306F\u3042\u308A\u307E\u305B\u3093"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-400 mt-1" }, "\u9593\u9055\u3048\u305F\u554F\u984C\u306F\u3053\u3053\u306B\u96C6\u307E\u308A\u307E\u3059\u3002"));
   return /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center gap-2 px-1" }, /* @__PURE__ */ React.createElement(RotateCcw, { size: 18, className: "text-rose-500" }), /* @__PURE__ */ React.createElement("h2", { className: "text-base font-bold" }, "\u9593\u9055\u3048\u305F\u554F\u984C\uFF08", wrongQs.length, "\uFF09")), /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-400 px-1" }, "\u6B63\u89E3\u3067\u304D\u305F\u554F\u984C\u306F\u81EA\u52D5\u3067\u5916\u308C\u307E\u3059\u3002"), wrongQs.map((q, i) => q.noBody ? /* @__PURE__ */ React.createElement("div", { key: q.id, className: "rounded-2xl bg-white border border-slate-200 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex gap-1.5 mb-1" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[q.cat] }, q.cat), /* @__PURE__ */ React.createElement(Pill, { tone: "ai" }, q.src)), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-500" }, "AI\u751F\u6210\u554F\u984C\u306E\u305F\u3081\u672C\u6587\u306F\u4FDD\u5B58\u3055\u308C\u307E\u305B\u3093\u3002\u540C\u5206\u91CE\u306E\u6F14\u7FD2\u3067\u518D\u6311\u6226\u3067\u304D\u307E\u3059\u3002")) : /* @__PURE__ */ React.createElement(ExplainCard, { key: q.id, q, chosen: -1, correct: false, num: i + 1 })));
 }
-function Analysis({ state }) {
+function Analysis({ state, onTest }) {
   const r = readiness(state.attempts);
   const cm = r.cm;
   const rows = Object.entries(cm).map(([k, v]) => ({ k, ...v, acc: v.total ? Math.round(v.correct / v.total * 100) : null }));
@@ -1283,7 +1298,48 @@ function Analysis({ state }) {
       className: "mt-3 w-full rounded-xl bg-violet-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
     },
     loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Loader2, { size: 16, className: "animate-spin" }), " \u4F5C\u6210\u4E2D\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Brain, { size: 16 }), " ", program ? "\u518D\u751F\u6210\u3059\u308B" : "\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210")
-  ))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "rounded-2xl bg-white border border-slate-200 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-1.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-bold text-slate-800" }, p.cat), /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold px-2 py-0.5 rounded-full", style: { background: p.priority === "\u9AD8" ? "#FEE2E2" : p.priority === "\u4E2D" ? "#FEF3C7" : "#DCFCE7", color: p.priority === "\u9AD8" ? "#DC2626" : p.priority === "\u4E2D" ? "#D97706" : "#16A34A" } }, "\u512A\u5148\u5EA6 ", p.priority)), /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-500 leading-relaxed" }, p.why), /* @__PURE__ */ React.createElement("ul", { className: "mt-2 space-y-1" }, (p.todo || []).map((t, j) => /* @__PURE__ */ React.createElement("li", { key: j, className: "text-[13px] text-slate-700 flex gap-1.5" }, /* @__PURE__ */ React.createElement(ListChecks, { size: 14, className: "text-indigo-400 shrink-0 mt-0.5" }), t))), p.goal && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-emerald-700 mt-2 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Target, { size: 12 }), " \u76EE\u6A19\uFF1A", p.goal))), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
+  ))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
+}
+function ProgramItem({ p, onTest }) {
+  const [lesson, setLesson] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  async function loadLesson() {
+    if (lesson) {
+      setOpen((o) => !o);
+      return;
+    }
+    setLoading(true);
+    setOpen(true);
+    try {
+      const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13\u306E\u8B1B\u5E2B\u3002\u6307\u5B9A\u5206\u91CE\u306E\u8981\u70B9\u8B1B\u5EA7\u3092\u3001\u521D\u5B66\u8005\u306B\u3082\u5206\u304B\u308B\u3088\u3046\u4F53\u7CFB\u7684\u306B\u4F5C\u308B\u3002JSON\u306E\u307F\u51FA\u529B\u3001\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u8A18\u53F7\u306F\u672C\u6587\u306B\u4F7F\u308F\u306A\u3044\u3002";
+      const usr = `\u5206\u91CE:${p.cat}\u3002\u3053\u306E\u5206\u91CE\u306E\u5348\u524D\u30FB\u5348\u5F8C\u3067\u554F\u308F\u308C\u308B\u8981\u70B9\u3092\u8B1B\u7FA9\u3059\u308B\u3002\u5F62\u5F0F:{"intro":"\u5206\u91CE\u306E\u5168\u4F53\u50CF(80\u5B57)","sections":[{"title":"\u898B\u51FA\u3057","body":"\u8AAC\u660E(120\u5B57\u7A0B\u5EA6\u3002\u5177\u4F53\u4F8B\u3084\u7528\u8A9E\u306E\u533A\u5225\u3092\u542B\u3080)"}],"pitfalls":["\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C81","2"],"examTip":"\u672C\u8A66\u9A13\u3067\u72D9\u308F\u308C\u308B\u89B3\u70B9(60\u5B57)"}\u3002sections\u306F3\u301C4\u500B\u3002\u65E5\u672C\u8A9E\u3002`;
+      const txt = await callClaude([{ role: "user", content: usr }], sys, 3072);
+      setLesson(parseJSON(txt));
+    } catch (e) {
+      setLesson({ intro: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u8B1B\u5EA7\u306E\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"), sections: [], pitfalls: [], examTip: "" });
+    }
+    setLoading(false);
+  }
+  return /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-4 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-1.5" }, /* @__PURE__ */ React.createElement("span", { className: "text-sm font-bold text-slate-800" }, p.cat), /* @__PURE__ */ React.createElement("span", { className: "text-[11px] font-bold px-2 py-0.5 rounded-full", style: { background: p.priority === "\u9AD8" ? "#FEE2E2" : p.priority === "\u4E2D" ? "#FEF3C7" : "#DCFCE7", color: p.priority === "\u9AD8" ? "#DC2626" : p.priority === "\u4E2D" ? "#D97706" : "#16A34A" } }, "\u512A\u5148\u5EA6 ", p.priority)), /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-500 leading-relaxed" }, p.why), /* @__PURE__ */ React.createElement("ul", { className: "mt-2 space-y-1" }, (p.todo || []).map((t, j) => /* @__PURE__ */ React.createElement("li", { key: j, className: "text-[13px] text-slate-700 flex gap-1.5" }, /* @__PURE__ */ React.createElement(ListChecks, { size: 14, className: "text-indigo-400 shrink-0 mt-0.5" }), t))), p.goal && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-emerald-700 mt-2 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Target, { size: 12 }), " \u76EE\u6A19\uFF1A", p.goal), /* @__PURE__ */ React.createElement("div", { className: "grid grid-cols-2 gap-2 mt-3" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: loadLesson,
+      disabled: loading,
+      className: "rounded-xl bg-indigo-50 text-indigo-700 py-2.5 text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+    },
+    loading ? /* @__PURE__ */ React.createElement(Loader2, { size: 14, className: "animate-spin" }) : /* @__PURE__ */ React.createElement(FileText, { size: 14 }),
+    " ",
+    open && lesson ? "\u8B1B\u5EA7\u3092\u9589\u3058\u308B" : "\u8B1B\u5EA7\u3092\u53D7\u3051\u308B"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      onClick: () => onTest && onTest(p.cat),
+      className: "rounded-xl bg-violet-600 text-white py-2.5 text-[13px] font-semibold flex items-center justify-center gap-1.5"
+    },
+    /* @__PURE__ */ React.createElement(Target, { size: 14 }),
+    " \u7406\u89E3\u5EA6\u30C6\u30B9\u30C8"
+  )), open && lesson && /* @__PURE__ */ React.createElement("div", { className: "mt-3 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2.5" }, lesson.intro && /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-700 leading-relaxed" }, lesson.intro), (lesson.sections || []).map((s, k) => /* @__PURE__ */ React.createElement("div", { key: k }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-bold text-slate-800 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Lightbulb, { size: 13, className: "text-amber-500" }), s.title), /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-600 leading-relaxed mt-0.5" }, s.body))), (lesson.pitfalls || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "rounded-lg bg-rose-50 border border-rose-100 p-2.5" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] font-bold text-rose-600 mb-1" }, "\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C8"), /* @__PURE__ */ React.createElement("ul", { className: "space-y-0.5" }, lesson.pitfalls.map((t, k) => /* @__PURE__ */ React.createElement("li", { key: k, className: "text-[12px] text-rose-900 flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 12, className: "shrink-0 mt-0.5" }), t)))), lesson.examTip && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-emerald-700 flex items-start gap-1" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 12, className: "shrink-0 mt-0.5" }), "\u672C\u8A66\u9A13\u306E\u30C4\u30DC\uFF1A", lesson.examTip), /* @__PURE__ */ React.createElement("button", { onClick: () => onTest && onTest(p.cat), className: "w-full mt-1 rounded-lg bg-violet-600 text-white py-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5" }, /* @__PURE__ */ React.createElement(Target, { size: 13 }), " \u7406\u89E3\u5EA6\u30C6\u30B9\u30C8\u3067\u78BA\u8A8D\u3059\u308B")));
 }
 function PMPrep({ state, update }) {
   const [view, setView] = useState("intro");
