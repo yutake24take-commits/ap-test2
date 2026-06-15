@@ -1300,10 +1300,39 @@ function Analysis({ state, onTest }) {
     loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Loader2, { size: 16, className: "animate-spin" }), " \u4F5C\u6210\u4E2D\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Brain, { size: 16 }), " ", program ? "\u518D\u751F\u6210\u3059\u308B" : "\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210")
   ))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
 }
+function Mermaid({ code }) {
+  const ref = useRef(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const url = "https://esm.sh/mermaid@10";
+        const mod = await import(
+          /* @vite-ignore */
+          url
+        );
+        const mermaid = mod.default || mod;
+        mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "strict", fontFamily: "inherit" });
+        const id = "mmd" + Math.random().toString(36).slice(2);
+        const { svg } = await mermaid.render(id, code);
+        if (alive && ref.current) ref.current.innerHTML = svg;
+      } catch (e) {
+        if (alive) setFailed(true);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [code]);
+  if (failed) return null;
+  return /* @__PURE__ */ React.createElement("div", { ref, className: "my-1 flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto" });
+}
 function ProgramItem({ p, onTest }) {
   const [lesson, setLesson] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   async function loadLesson() {
     if (lesson) {
       setOpen((o) => !o);
@@ -1312,8 +1341,8 @@ function ProgramItem({ p, onTest }) {
     setLoading(true);
     setOpen(true);
     try {
-      const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13\u306E\u8B1B\u5E2B\u3002\u6307\u5B9A\u5206\u91CE\u306E\u8981\u70B9\u8B1B\u5EA7\u3092\u3001\u521D\u5B66\u8005\u306B\u3082\u5206\u304B\u308B\u3088\u3046\u4F53\u7CFB\u7684\u306B\u4F5C\u308B\u3002JSON\u306E\u307F\u51FA\u529B\u3001\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u8A18\u53F7\u306F\u672C\u6587\u306B\u4F7F\u308F\u306A\u3044\u3002";
-      const usr = `\u5206\u91CE:${p.cat}\u3002\u3053\u306E\u5206\u91CE\u306E\u5348\u524D\u30FB\u5348\u5F8C\u3067\u554F\u308F\u308C\u308B\u8981\u70B9\u3092\u8B1B\u7FA9\u3059\u308B\u3002\u5F62\u5F0F:{"intro":"\u5206\u91CE\u306E\u5168\u4F53\u50CF(80\u5B57)","sections":[{"title":"\u898B\u51FA\u3057","body":"\u8AAC\u660E(120\u5B57\u7A0B\u5EA6\u3002\u5177\u4F53\u4F8B\u3084\u7528\u8A9E\u306E\u533A\u5225\u3092\u542B\u3080)"}],"pitfalls":["\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C81","2"],"examTip":"\u672C\u8A66\u9A13\u3067\u72D9\u308F\u308C\u308B\u89B3\u70B9(60\u5B57)"}\u3002sections\u306F3\u301C4\u500B\u3002\u65E5\u672C\u8A9E\u3002`;
+      const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13\u306E\u8B1B\u5E2B\u3002\u6307\u5B9A\u5206\u91CE\u306E\u8981\u70B9\u8B1B\u5EA7\u3092\u3001\u521D\u5B66\u8005\u306B\u3082\u5206\u304B\u308B\u3088\u3046\u4F53\u7CFB\u7684\u306B\u4F5C\u308B\u3002\u56F3\u89E3\u304C\u7406\u89E3\u3092\u52A9\u3051\u308B\u5834\u5408\u306Fmermaid\u8A18\u6CD5\u306E\u56F3\u3092\u6DFB\u3048\u308B\u3002JSON\u306E\u307F\u51FA\u529B\u3001\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u8A18\u53F7\u306F\u672C\u6587\u306B\u4F7F\u308F\u306A\u3044\u3002";
+      const usr = `\u5206\u91CE:${p.cat}\u3002\u3053\u306E\u5206\u91CE\u306E\u5348\u524D\u30FB\u5348\u5F8C\u3067\u554F\u308F\u308C\u308B\u8981\u70B9\u3092\u8B1B\u7FA9\u3059\u308B\u3002\u5F62\u5F0F:{"intro":"\u5206\u91CE\u306E\u5168\u4F53\u50CF(80\u5B57)","sections":[{"title":"\u898B\u51FA\u3057","body":"\u8AAC\u660E(120\u5B57\u7A0B\u5EA6\u3002\u5177\u4F53\u4F8B\u3084\u7528\u8A9E\u306E\u533A\u5225\u3092\u542B\u3080)"}],"diagram":"mermaid\u8A18\u6CD5\u306E\u56F3(\u4EFB\u610F)\u3002\u56F3\u89E3\u304C\u6709\u52B9\u306A\u5206\u91CE\u306E\u307F\u5165\u308C\u308B\u3002flowchart/sequenceDiagram/erDiagram\u7B49\u3002\u30CE\u30FC\u30C9\u306E\u30E9\u30D9\u30EB\u306F\u5FC5\u305A\u30C0\u30D6\u30EB\u30AF\u30AA\u30FC\u30C8\u3067\u56F2\u307F\u3001\u7279\u6B8A\u8A18\u53F7\u306F\u907F\u3051\u308B\u3002\u4E0D\u8981\u306A\u3089\u7A7A\u6587\u5B57\\"\\"","pitfalls":["\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C81","2"],"examTip":"\u672C\u8A66\u9A13\u3067\u72D9\u308F\u308C\u308B\u89B3\u70B9(60\u5B57)"}\u3002sections\u306F3\u301C4\u500B\u3002\u65E5\u672C\u8A9E\u3002`;
       const txt = await callClaude([{ role: "user", content: usr }], sys, 3072);
       setLesson(parseJSON(txt));
     } catch (e) {
@@ -1339,7 +1368,14 @@ function ProgramItem({ p, onTest }) {
     },
     /* @__PURE__ */ React.createElement(Target, { size: 14 }),
     " \u7406\u89E3\u5EA6\u30C6\u30B9\u30C8"
-  )), open && lesson && /* @__PURE__ */ React.createElement("div", { className: "mt-3 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2.5" }, lesson.intro && /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-700 leading-relaxed" }, lesson.intro), (lesson.sections || []).map((s, k) => /* @__PURE__ */ React.createElement("div", { key: k }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-bold text-slate-800 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Lightbulb, { size: 13, className: "text-amber-500" }), s.title), /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-600 leading-relaxed mt-0.5" }, s.body))), (lesson.pitfalls || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "rounded-lg bg-rose-50 border border-rose-100 p-2.5" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] font-bold text-rose-600 mb-1" }, "\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C8"), /* @__PURE__ */ React.createElement("ul", { className: "space-y-0.5" }, lesson.pitfalls.map((t, k) => /* @__PURE__ */ React.createElement("li", { key: k, className: "text-[12px] text-rose-900 flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 12, className: "shrink-0 mt-0.5" }), t)))), lesson.examTip && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-emerald-700 flex items-start gap-1" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 12, className: "shrink-0 mt-0.5" }), "\u672C\u8A66\u9A13\u306E\u30C4\u30DC\uFF1A", lesson.examTip), /* @__PURE__ */ React.createElement("button", { onClick: () => onTest && onTest(p.cat), className: "w-full mt-1 rounded-lg bg-violet-600 text-white py-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5" }, /* @__PURE__ */ React.createElement(Target, { size: 13 }), " \u7406\u89E3\u5EA6\u30C6\u30B9\u30C8\u3067\u78BA\u8A8D\u3059\u308B")));
+  )), open && lesson && /* @__PURE__ */ React.createElement("div", { className: "mt-3 rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2.5" }, lesson.intro && /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-700 leading-relaxed" }, lesson.intro), lesson.diagram && lesson.diagram.trim() && /* @__PURE__ */ React.createElement("div", { className: "rounded-lg bg-white border border-slate-200 p-2" }, /* @__PURE__ */ React.createElement(Mermaid, { code: lesson.diagram })), (lesson.sections || []).map((s, k) => /* @__PURE__ */ React.createElement("div", { key: k }, /* @__PURE__ */ React.createElement("p", { className: "text-[13px] font-bold text-slate-800 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Lightbulb, { size: 13, className: "text-amber-500" }), s.title), /* @__PURE__ */ React.createElement("p", { className: "text-[12.5px] text-slate-600 leading-relaxed mt-0.5" }, s.body))), (lesson.pitfalls || []).length > 0 && /* @__PURE__ */ React.createElement("div", { className: "rounded-lg bg-rose-50 border border-rose-100 p-2.5" }, /* @__PURE__ */ React.createElement("p", { className: "text-[11px] font-bold text-rose-600 mb-1" }, "\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C8"), /* @__PURE__ */ React.createElement("ul", { className: "space-y-0.5" }, lesson.pitfalls.map((t, k) => /* @__PURE__ */ React.createElement("li", { key: k, className: "text-[12px] text-rose-900 flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 12, className: "shrink-0 mt-0.5" }), t)))), lesson.examTip && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-emerald-700 flex items-start gap-1" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 12, className: "shrink-0 mt-0.5" }), "\u672C\u8A66\u9A13\u306E\u30C4\u30DC\uFF1A", lesson.examTip), !chatOpen ? /* @__PURE__ */ React.createElement("button", { onClick: () => setChatOpen(true), className: "w-full rounded-lg border border-indigo-200 text-indigo-700 py-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5" }, /* @__PURE__ */ React.createElement(MessageCircle, { size: 14 }), " \u3053\u306E\u5206\u91CE\u306B\u3064\u3044\u3066AI\u306B\u8CEA\u554F\u3059\u308B") : /* @__PURE__ */ React.createElement(
+    ChatPanel,
+    {
+      context: `\u3044\u307E\u300C${p.cat}\u300D\u306E\u8B1B\u5EA7\u3092\u5B66\u7FD2\u4E2D\u3002`,
+      placeholder: `\u4F8B\uFF1A${p.cat}\u3067\u3088\u304F\u51FA\u308B\u7528\u8A9E\u306E\u9055\u3044\u306F\uFF1F`,
+      seed: `\u300C${p.cat}\u300D\u306B\u3064\u3044\u3066\u4F55\u3067\u3082\u8CEA\u554F\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u7528\u8A9E\u306E\u9055\u3044\u3084\u5177\u4F53\u4F8B\u3001\u89E3\u304D\u65B9\u306E\u30B3\u30C4\u306A\u3069\u3001\u6839\u62E0\u304B\u3089\u8AAC\u660E\u3057\u307E\u3059\u3002`
+    }
+  ), /* @__PURE__ */ React.createElement("button", { onClick: () => onTest && onTest(p.cat), className: "w-full mt-1 rounded-lg bg-violet-600 text-white py-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5" }, /* @__PURE__ */ React.createElement(Target, { size: 13 }), " \u7406\u89E3\u5EA6\u30C6\u30B9\u30C8\u3067\u78BA\u8A8D\u3059\u308B")));
 }
 function PMPrep({ state, update }) {
   const [view, setView] = useState("intro");
