@@ -583,8 +583,10 @@ var DEFAULT_STATE = {
   // AI生成の重複回避
   program: null,
   // 苦手対策プログラム（再生成するまで保持）
-  lessons: {}
+  lessons: {},
   // 分野ごとの講座キャッシュ {cat: lesson}
+  lessonsOpen: {}
+  // 講座の開閉状態 {cat: bool}
 };
 async function loadState() {
   try {
@@ -1291,7 +1293,7 @@ function Analysis({ state, onTest, update }) {
 \u5F62\u5F0F:{"summary":"\u5168\u4F53\u6240\u898B(120\u5B57)","plan":[{"cat":"\u5206\u91CE","priority":"\u9AD8/\u4E2D/\u4F4E","why":"\u306A\u305C\u5FC5\u8981\u304B","todo":["\u5177\u4F53\u7684\u5B66\u7FD2\u9805\u76EE1","\u9805\u76EE2"],"goal":"\u5230\u9054\u76EE\u6A19"}],"balance":"\u504F\u308A\u3092\u907F\u3051\u308B\u52A9\u8A00(80\u5B57)"}\u3002\u5F31\u70B9\u304C\u8907\u6570\u3042\u308C\u3070\u5FC5\u305A\u5168\u3066\u542B\u3081\u308B\u3002\u65E5\u672C\u8A9E\u3002`;
       const txt = await callClaude([{ role: "user", content: usr }], sys, 4096);
       const parsed = parseJSON(txt);
-      update && update((s) => ({ ...s, program: parsed, lessons: {} }));
+      update && update((s) => ({ ...s, program: parsed, lessons: {}, lessonsOpen: {} }));
     } catch (e) {
       setError("\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"));
     }
@@ -1299,6 +1301,9 @@ function Analysis({ state, onTest, update }) {
   }
   const saveLesson = (cat, lesson) => {
     update && update((s) => ({ ...s, lessons: { ...s.lessons || {}, [cat]: lesson } }));
+  };
+  const toggleOpen = (cat, isOpen) => {
+    update && update((s) => ({ ...s, lessonsOpen: { ...s.lessonsOpen || {}, [cat]: isOpen } }));
   };
   return /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-3" }, /* @__PURE__ */ React.createElement("h2", { className: "text-base font-bold flex items-center gap-2" }, /* @__PURE__ */ React.createElement(BarChart3, { size: 18, className: "text-indigo-600" }), " \u5206\u91CE\u5225 \u5230\u9054\u5EA6"), /* @__PURE__ */ React.createElement("span", { className: "text-xs text-slate-400" }, state.attempts.length, "\u554F")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, rows.map(({ k, acc, total, correct }) => /* @__PURE__ */ React.createElement("div", { key: k }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between text-[11px] mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "text-slate-600 flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[k] }, DOMAIN_OF[k]), k), /* @__PURE__ */ React.createElement("span", { className: "text-slate-400" }, total ? `${correct}/${total}\u30FB${acc}%` : "\u672A")), /* @__PURE__ */ React.createElement("div", { className: "h-1.5 rounded-full bg-slate-100 overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "h-full rounded-full", style: { width: `${acc || 0}%`, background: acc === null ? "#E2E8F0" : acc < 50 ? "#F43F5E" : acc < 70 ? "#F59E0B" : "#10B981" } })))))), /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-bold flex items-center gap-2" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 15, className: "text-violet-600" }), " \u82E6\u624B\u5BFE\u7B56\u30D7\u30ED\u30B0\u30E9\u30E0"), !enough ? /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-400 mt-2" }, "\u3042\u3068", ANALYZE_AT - state.attempts.length, "\u554F\u3067AI\u304C\u5C02\u7528\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210\u3057\u307E\u3059\uFF0820\u554F\u76EE\u5B89\uFF09\u3002") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-500 mt-1.5 leading-relaxed" }, "\u5206\u91CE\u5225\u306E\u6B63\u7B54\u7387\u3092\u3082\u3068\u306B\u3001\u504F\u308A\u306A\u304F\u5F31\u70B9\u3092\u5E95\u4E0A\u3052\u3059\u308B\u5B66\u7FD2\u8A08\u753B\u3092AI\u304C\u4F5C\u6210\u3057\u307E\u3059\u3002"), /* @__PURE__ */ React.createElement(
     "button",
@@ -1308,7 +1313,7 @@ function Analysis({ state, onTest, update }) {
       className: "mt-3 w-full rounded-xl bg-violet-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
     },
     loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Loader2, { size: 16, className: "animate-spin" }), " \u4F5C\u6210\u4E2D\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Brain, { size: 16 }), " ", program ? "\u518D\u751F\u6210\u3059\u308B" : "\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210")
-  ), error && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-rose-600 mt-2 leading-relaxed" }, error))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest, savedLesson: (state.lessons || {})[p.cat] || null, onSaveLesson: saveLesson })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
+  ), error && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-rose-600 mt-2 leading-relaxed" }, error))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest, savedLesson: (state.lessons || {})[p.cat] || null, onSaveLesson: saveLesson, savedOpen: !!(state.lessonsOpen || {})[p.cat], onToggleOpen: toggleOpen })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
 }
 function Mermaid({ code }) {
   const ref = useRef(null);
@@ -1338,14 +1343,18 @@ function Mermaid({ code }) {
   if (failed) return null;
   return /* @__PURE__ */ React.createElement("div", { ref, className: "my-1 flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto" });
 }
-function ProgramItem({ p, onTest, savedLesson, onSaveLesson }) {
+function ProgramItem({ p, onTest, savedLesson, onSaveLesson, savedOpen, onToggleOpen }) {
   const [lesson, setLesson] = useState(savedLesson || null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(savedOpen && !!savedLesson);
   const [loading, setLoading] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  function setOpenP(v) {
+    setOpen(v);
+    onToggleOpen && onToggleOpen(p.cat, v);
+  }
   async function loadLesson() {
     if (lesson) {
-      setOpen((o) => !o);
+      setOpenP(!open);
       return;
     }
     setLoading(true);
@@ -1357,6 +1366,7 @@ function ProgramItem({ p, onTest, savedLesson, onSaveLesson }) {
       const parsed = parseJSON(txt);
       setLesson(parsed);
       onSaveLesson && onSaveLesson(p.cat, parsed);
+      onToggleOpen && onToggleOpen(p.cat, true);
     } catch (e) {
       setLesson({ intro: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u8B1B\u5EA7\u306E\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"), sections: [], pitfalls: [], examTip: "" });
     }
