@@ -31,7 +31,8 @@ import {
   Trash2,
   Pencil,
   Eraser,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
 var PASS_LINE = 60;
 var ANALYZE_AT = 20;
@@ -900,25 +901,35 @@ function Scratchpad({ tab }) {
   const drawing = useRef(false);
   const last = useRef({ x: 0, y: 0 });
   const hasContent = useRef(false);
+  const savedImage = useRef(null);
   const setupCanvas = useCallback(() => {
     const c = canvasRef.current;
     if (!c) return;
     const rect = c.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const dpr = window.devicePixelRatio || 1;
-    const prev = hasContent.current ? c.toDataURL() : null;
     c.width = Math.round(rect.width * dpr);
     c.height = Math.round(rect.height * dpr);
     const ctx = c.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    if (prev) {
+    if (savedImage.current) {
       const img = new Image();
       img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
-      img.src = prev;
+      img.src = savedImage.current;
     }
   }, []);
+  function minimize() {
+    const c = canvasRef.current;
+    if (c && hasContent.current) {
+      try {
+        savedImage.current = c.toDataURL();
+      } catch (_) {
+      }
+    }
+    setOpen(false);
+  }
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(setupCanvas, 60);
@@ -964,6 +975,7 @@ function Scratchpad({ tab }) {
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.restore();
     hasContent.current = false;
+    savedImage.current = null;
   }
   const showFab = ["am", "pm", "review"].includes(tab);
   const grid = "repeating-linear-gradient(#eef2f7 0 1px, transparent 1px 22px), repeating-linear-gradient(90deg, #eef2f7 0 1px, transparent 1px 22px)";
@@ -992,7 +1004,7 @@ function Scratchpad({ tab }) {
     },
     /* @__PURE__ */ React.createElement(Eraser, { size: 13 }),
     " \u6D88\u3057"
-  ), /* @__PURE__ */ React.createElement("button", { onClick: clear, className: "px-2.5 py-1.5 rounded-lg text-[12px] font-semibold bg-white border border-slate-200 text-rose-500 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Trash2, { size: 13 }), " \u5168\u6D88\u3057"), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(false), className: "w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 flex items-center justify-center" }, /* @__PURE__ */ React.createElement(X, { size: 16 })))), /* @__PURE__ */ React.createElement("div", { className: "relative", style: { height: "calc(44vh - 41px)", background: grid, backgroundColor: "#fff" } }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("button", { onClick: clear, className: "px-2.5 py-1.5 rounded-lg text-[12px] font-semibold bg-white border border-slate-200 text-rose-500 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(Trash2, { size: 13 }), " \u5168\u6D88\u3057"), /* @__PURE__ */ React.createElement("button", { onClick: minimize, className: "px-2.5 py-1.5 rounded-lg text-[12px] font-semibold bg-white border border-slate-200 text-slate-500 flex items-center gap-1" }, /* @__PURE__ */ React.createElement(ChevronDown, { size: 14 }), " \u6700\u5C0F\u5316"))), /* @__PURE__ */ React.createElement("div", { className: "relative", style: { height: "calc(44vh - 41px)", background: grid, backgroundColor: "#fff" } }, /* @__PURE__ */ React.createElement(
     "canvas",
     {
       ref: canvasRef,
@@ -1193,7 +1205,7 @@ function Analysis({ state }) {
       const txt = await callClaude([{ role: "user", content: usr }], sys);
       setProgram(parseJSON(txt));
     } catch (e) {
-      setProgram({ summary: "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u901A\u4FE1\u74B0\u5883\u3092\u78BA\u8A8D\u3057\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002", plan: [], balance: "" });
+      setProgram({ summary: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"), plan: [], balance: "" });
     }
     setLoading(false);
   }
