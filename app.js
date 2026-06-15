@@ -581,8 +581,10 @@ var DEFAULT_STATE = {
   // 午後採点履歴
   seenStems: [],
   // AI生成の重複回避
-  program: null
+  program: null,
   // 苦手対策プログラム（再生成するまで保持）
+  lessons: {}
+  // 分野ごとの講座キャッシュ {cat: lesson}
 };
 async function loadState() {
   try {
@@ -1273,11 +1275,13 @@ function Analysis({ state, onTest, update }) {
   const r = readiness(state.attempts);
   const cm = r.cm;
   const rows = Object.entries(cm).map(([k, v]) => ({ k, ...v, acc: v.total ? Math.round(v.correct / v.total * 100) : null }));
-  const [program, setProgram] = useState(state.program || null);
+  const program = state.program || null;
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const enough = state.attempts.length >= ANALYZE_AT;
   async function makeProgram() {
     setLoading(true);
+    setError("");
     try {
       const weakList = rows.filter((x) => x.total >= 2 && x.acc !== null && x.acc < 70).map((x) => `${x.k}(${x.acc}% / ${x.total}\u554F)`);
       const allList = rows.filter((x) => x.total > 0).map((x) => `${x.k}:${x.acc}%`).join("\u3001");
@@ -1287,13 +1291,15 @@ function Analysis({ state, onTest, update }) {
 \u5F62\u5F0F:{"summary":"\u5168\u4F53\u6240\u898B(120\u5B57)","plan":[{"cat":"\u5206\u91CE","priority":"\u9AD8/\u4E2D/\u4F4E","why":"\u306A\u305C\u5FC5\u8981\u304B","todo":["\u5177\u4F53\u7684\u5B66\u7FD2\u9805\u76EE1","\u9805\u76EE2"],"goal":"\u5230\u9054\u76EE\u6A19"}],"balance":"\u504F\u308A\u3092\u907F\u3051\u308B\u52A9\u8A00(80\u5B57)"}\u3002\u5F31\u70B9\u304C\u8907\u6570\u3042\u308C\u3070\u5FC5\u305A\u5168\u3066\u542B\u3081\u308B\u3002\u65E5\u672C\u8A9E\u3002`;
       const txt = await callClaude([{ role: "user", content: usr }], sys, 4096);
       const parsed = parseJSON(txt);
-      setProgram(parsed);
-      update && update((s) => ({ ...s, program: parsed }));
+      update && update((s) => ({ ...s, program: parsed, lessons: {} }));
     } catch (e) {
-      setProgram({ summary: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"), plan: [], balance: "" });
+      setError("\u26A0\uFE0F " + (e && e.message ? e.message : "\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002\u5C11\u3057\u5F85\u3063\u3066\u518D\u5EA6\u304A\u8A66\u3057\u304F\u3060\u3055\u3044\u3002"));
     }
     setLoading(false);
   }
+  const saveLesson = (cat, lesson) => {
+    update && update((s) => ({ ...s, lessons: { ...s.lessons || {}, [cat]: lesson } }));
+  };
   return /* @__PURE__ */ React.createElement("div", { className: "space-y-4" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("div", { className: "flex items-center justify-between mb-3" }, /* @__PURE__ */ React.createElement("h2", { className: "text-base font-bold flex items-center gap-2" }, /* @__PURE__ */ React.createElement(BarChart3, { size: 18, className: "text-indigo-600" }), " \u5206\u91CE\u5225 \u5230\u9054\u5EA6"), /* @__PURE__ */ React.createElement("span", { className: "text-xs text-slate-400" }, state.attempts.length, "\u554F")), /* @__PURE__ */ React.createElement("div", { className: "space-y-2.5" }, rows.map(({ k, acc, total, correct }) => /* @__PURE__ */ React.createElement("div", { key: k }, /* @__PURE__ */ React.createElement("div", { className: "flex justify-between text-[11px] mb-1" }, /* @__PURE__ */ React.createElement("span", { className: "text-slate-600 flex items-center gap-1.5" }, /* @__PURE__ */ React.createElement(Pill, { tone: DOMAIN_OF[k] }, DOMAIN_OF[k]), k), /* @__PURE__ */ React.createElement("span", { className: "text-slate-400" }, total ? `${correct}/${total}\u30FB${acc}%` : "\u672A")), /* @__PURE__ */ React.createElement("div", { className: "h-1.5 rounded-full bg-slate-100 overflow-hidden" }, /* @__PURE__ */ React.createElement("div", { className: "h-full rounded-full", style: { width: `${acc || 0}%`, background: acc === null ? "#E2E8F0" : acc < 50 ? "#F43F5E" : acc < 70 ? "#F59E0B" : "#10B981" } })))))), /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-white border border-slate-200 p-5 shadow-sm" }, /* @__PURE__ */ React.createElement("h3", { className: "text-sm font-bold flex items-center gap-2" }, /* @__PURE__ */ React.createElement(Sparkles, { size: 15, className: "text-violet-600" }), " \u82E6\u624B\u5BFE\u7B56\u30D7\u30ED\u30B0\u30E9\u30E0"), !enough ? /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-slate-400 mt-2" }, "\u3042\u3068", ANALYZE_AT - state.attempts.length, "\u554F\u3067AI\u304C\u5C02\u7528\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210\u3057\u307E\u3059\uFF0820\u554F\u76EE\u5B89\uFF09\u3002") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-500 mt-1.5 leading-relaxed" }, "\u5206\u91CE\u5225\u306E\u6B63\u7B54\u7387\u3092\u3082\u3068\u306B\u3001\u504F\u308A\u306A\u304F\u5F31\u70B9\u3092\u5E95\u4E0A\u3052\u3059\u308B\u5B66\u7FD2\u8A08\u753B\u3092AI\u304C\u4F5C\u6210\u3057\u307E\u3059\u3002"), /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1302,7 +1308,7 @@ function Analysis({ state, onTest, update }) {
       className: "mt-3 w-full rounded-xl bg-violet-600 text-white py-3 font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
     },
     loading ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Loader2, { size: 16, className: "animate-spin" }), " \u4F5C\u6210\u4E2D\u2026") : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Brain, { size: 16 }), " ", program ? "\u518D\u751F\u6210\u3059\u308B" : "\u30D7\u30ED\u30B0\u30E9\u30E0\u3092\u4F5C\u6210")
-  ))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
+  ), error && /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-rose-600 mt-2 leading-relaxed" }, error))), program && /* @__PURE__ */ React.createElement("div", { className: "space-y-3" }, /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-violet-50 border border-violet-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] font-semibold text-violet-700 mb-1" }, "\u5168\u4F53\u6240\u898B"), /* @__PURE__ */ React.createElement("p", { className: "text-[13px] text-violet-900 leading-relaxed" }, program.summary)), (program.plan || []).map((p, i) => /* @__PURE__ */ React.createElement(ProgramItem, { key: i, p, onTest, savedLesson: (state.lessons || {})[p.cat] || null, onSaveLesson: saveLesson })), program.balance && /* @__PURE__ */ React.createElement("div", { className: "rounded-2xl bg-slate-50 border border-slate-200 p-4" }, /* @__PURE__ */ React.createElement("p", { className: "text-[12px] text-slate-600 leading-relaxed flex gap-1.5" }, /* @__PURE__ */ React.createElement(AlertTriangle, { size: 14, className: "text-amber-500 shrink-0 mt-0.5" }), program.balance))));
 }
 function Mermaid({ code }) {
   const ref = useRef(null);
@@ -1332,8 +1338,8 @@ function Mermaid({ code }) {
   if (failed) return null;
   return /* @__PURE__ */ React.createElement("div", { ref, className: "my-1 flex justify-center overflow-x-auto [&_svg]:max-w-full [&_svg]:h-auto" });
 }
-function ProgramItem({ p, onTest }) {
-  const [lesson, setLesson] = useState(null);
+function ProgramItem({ p, onTest, savedLesson, onSaveLesson }) {
+  const [lesson, setLesson] = useState(savedLesson || null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -1348,7 +1354,9 @@ function ProgramItem({ p, onTest }) {
       const sys = "\u3042\u306A\u305F\u306F\u5FDC\u7528\u60C5\u5831\u6280\u8853\u8005\u8A66\u9A13\u306E\u8B1B\u5E2B\u3002\u6307\u5B9A\u5206\u91CE\u306E\u8981\u70B9\u8B1B\u5EA7\u3092\u3001\u521D\u5B66\u8005\u306B\u3082\u5206\u304B\u308B\u3088\u3046\u4F53\u7CFB\u7684\u306B\u4F5C\u308B\u3002\u56F3\u89E3\u304C\u7406\u89E3\u3092\u52A9\u3051\u308B\u5834\u5408\u306Fmermaid\u8A18\u6CD5\u306E\u56F3\u3092\u6DFB\u3048\u308B\u3002JSON\u306E\u307F\u51FA\u529B\u3001\u30DE\u30FC\u30AF\u30C0\u30A6\u30F3\u8A18\u53F7\u306F\u672C\u6587\u306B\u4F7F\u308F\u306A\u3044\u3002";
       const usr = `\u5206\u91CE:${p.cat}\u3002\u3053\u306E\u5206\u91CE\u306E\u5348\u524D\u30FB\u5348\u5F8C\u3067\u554F\u308F\u308C\u308B\u8981\u70B9\u3092\u8B1B\u7FA9\u3059\u308B\u3002\u5F62\u5F0F:{"intro":"\u5206\u91CE\u306E\u5168\u4F53\u50CF(80\u5B57)","sections":[{"title":"\u898B\u51FA\u3057","body":"\u8AAC\u660E(120\u5B57\u7A0B\u5EA6\u3002\u5177\u4F53\u4F8B\u3084\u7528\u8A9E\u306E\u533A\u5225\u3092\u542B\u3080)"}],"diagram":"mermaid\u8A18\u6CD5\u306E\u56F3(\u4EFB\u610F)\u3002\u56F3\u89E3\u304C\u6709\u52B9\u306A\u5206\u91CE\u306E\u307F\u5165\u308C\u308B\u3002flowchart/sequenceDiagram/erDiagram\u7B49\u3002\u30CE\u30FC\u30C9\u306E\u30E9\u30D9\u30EB\u306F\u5FC5\u305A\u30C0\u30D6\u30EB\u30AF\u30AA\u30FC\u30C8\u3067\u56F2\u307F\u3001\u7279\u6B8A\u8A18\u53F7\u306F\u907F\u3051\u308B\u3002\u4E0D\u8981\u306A\u3089\u7A7A\u6587\u5B57\\"\\"","pitfalls":["\u9593\u9055\u3048\u3084\u3059\u3044\u30DD\u30A4\u30F3\u30C81","2"],"examTip":"\u672C\u8A66\u9A13\u3067\u72D9\u308F\u308C\u308B\u89B3\u70B9(60\u5B57)"}\u3002sections\u306F3\u301C4\u500B\u3002\u65E5\u672C\u8A9E\u3002`;
       const txt = await callClaude([{ role: "user", content: usr }], sys, 3072);
-      setLesson(parseJSON(txt));
+      const parsed = parseJSON(txt);
+      setLesson(parsed);
+      onSaveLesson && onSaveLesson(p.cat, parsed);
     } catch (e) {
       setLesson({ intro: "\u26A0\uFE0F " + (e && e.message ? e.message : "\u8B1B\u5EA7\u306E\u751F\u6210\u306B\u5931\u6557\u3057\u307E\u3057\u305F\u3002"), sections: [], pitfalls: [], examTip: "" });
     }
